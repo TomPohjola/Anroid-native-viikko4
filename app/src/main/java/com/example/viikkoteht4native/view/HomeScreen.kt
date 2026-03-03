@@ -1,9 +1,9 @@
 package com.example.viikkoteht4native.view
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,9 +18,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -30,67 +28,61 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SegmentedButtonDefaults.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.viikkoteht4native.viewmodel.TaskViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.collectAsState
-import com.example.viikkoteht4native.model.Task
+//import com.example.viikkoteht4native.model.Task
+import com.example.viikkoteht4native.data.Task
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Homescreen(taskiViewModeli: TaskViewModel = viewModel(),
-               modifier: Modifier = Modifier,
                onNavigateCalendar: () -> Unit = {},
-               onAddClick: () -> Unit = {},)
+               modifier: Modifier = Modifier,
+               )
 {
     val taskilistaState by taskiViewModeli.taskilistaState.collectAsState()
     val valittutaski by taskiViewModeli.valittutaski.collectAsState()
-    val addTaskFlag by taskiViewModeli.addTaskDialogVisible.collectAsState()
 
-    val showAlert = remember { mutableStateOf(false) }
+    var showAdd = remember { mutableStateOf(false) }
 
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
     val screenWidth = configuration.screenWidthDp.dp
 
-    if (showAlert.value) {
-        AlertScreen(
-            showDialog = showAlert.value,
-            onDismiss = {showAlert.value = false})
-    }
     if (valittutaski != null) {
         DetailScreen(valittutask = valittutaski!!,
             onDismiss = { taskiViewModeli.closeDialog() },
             onUpdate = { taskiViewModeli.updateTask(it)},
-            onDelete = { taskiViewModeli.removeTask(it.id)})
+            onDelete = { taskiViewModeli.removeTask(it.id)
+                             })
     }
-    if (addTaskFlag) {
+    if (showAdd.value) {
         addScreen(
-            onDismiss = { taskiViewModeli.addTaskDialogVisible.value = false },
-            onAdd = { taskiViewModeli.addTask(it) }
+            onDismiss = { showAdd.value = false },
+            onAdd = { taskiViewModeli.addTask(it)
+                       showAdd.value = false }
         )
     }
 
     Column(modifier
         .padding(15.dp)
         .verticalScroll(rememberScrollState())
+        .width(screenWidth)
         .height(screenHeight),
         horizontalAlignment = Alignment.CenterHorizontally) {
 
@@ -109,6 +101,7 @@ fun Homescreen(taskiViewModeli: TaskViewModel = viewModel(),
         LazyColumn(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
+                .width(screenWidth)
                 .height(screenHeight / 2)
                 .border(2.dp, Color.Black),
             contentPadding = PaddingValues(20.dp),
@@ -135,7 +128,8 @@ fun Homescreen(taskiViewModeli: TaskViewModel = viewModel(),
 
                             checked = taskiViewModeli.taskilistaState.collectAsState().value[index].done,
                             onCheckedChange = {
-                                taskiViewModeli.toggleDone(index)
+                                Log.d("id", "${task.id}")
+                                taskiViewModeli.toggleDone(task.id)
                             })
                         Spacer(Modifier.weight(1f))
                         ElevatedButton(
@@ -146,7 +140,7 @@ fun Homescreen(taskiViewModeli: TaskViewModel = viewModel(),
                             },
                         )
                         {
-                            Text(text = "muokkaa")
+                            Text(text = "Muokkaa")
                         }
                     }
                 }
@@ -169,61 +163,11 @@ fun Homescreen(taskiViewModeli: TaskViewModel = viewModel(),
             ElevatedButton(
                 colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
                 border = BorderStroke(1.dp, Color.Black),
-                onClick = {
-                    taskiViewModeli.showDone()
-                },
+                onClick = {showAdd.value = true}
             )
             {
-                Text(text = "näytä tekemättömät")
+                Text(text = "lisää tehtävä")
             }
-            Spacer(Modifier.padding(10.dp))
-            ElevatedButton(
-                colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
-                border = BorderStroke(1.dp, Color.Black),
-                onClick = {
-                    taskiViewModeli.sortByDate()
-                },
-            )
-            {
-                Text(text = "järjestele")
-            }
-            Spacer(Modifier.padding(10.dp))
-            ElevatedButton(
-                colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
-                border = BorderStroke(1.dp, Color.Black),
-                onClick = onAddClick
-            )
-            {
-                Text(text = "lisää taski")
-            }
-        }
-    }
-}
-@Composable
-fun AlertScreen(showDialog: Boolean,
-                onDismiss: () -> Unit) {
-    if (showDialog) {
-        Column(modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .padding(16.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally) {
-            AlertDialog(
-                title = {
-                    Text("Päivämäärä virheellinen formaatti")
-                },
-                text = {
-                    Text(text = "Anna päivämäärä muodossa day-mon-year, esim: 10-10-2020.")
-                },
-                onDismissRequest = onDismiss,
-                confirmButton = {
-                    TextButton(onClick = onDismiss) {
-                        Text("OK")
-                    }
-                },
-                dismissButton = {}
-            )
         }
     }
 }

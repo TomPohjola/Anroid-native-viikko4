@@ -2,16 +2,28 @@ package com.example.viikkoteht4native.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import com.example.viikkoteht4native.model.Task
+import androidx.lifecycle.viewModelScope
+import com.example.viikkoteht4native.data.TaskRepository
+//import com.example.viikkoteht4native.model.Task
+import com.example.viikkoteht4native.data.Task
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlin.collections.listOf
 
 
-class TaskViewModel : ViewModel() {
+class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
     private val _taskilistaState = MutableStateFlow(listOf<Task>())
-    val taskilistaState: StateFlow<List<Task>> = _taskilistaState.asStateFlow()
+    var taskilistaState: StateFlow<List<Task>> = repository.allTasks
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     private val _valittutaski = MutableStateFlow<Task?>(null)
     val valittutaski: StateFlow<Task?> = _valittutaski.asStateFlow()
@@ -19,21 +31,8 @@ class TaskViewModel : ViewModel() {
     private val _taskilistaStateKaikki = MutableStateFlow(listOf<Task>())
     var toggledone: Boolean = false
 
-    val addTaskDialogVisible = MutableStateFlow<Boolean>(false)
 
-    init
-    {
-        _taskilistaState.value = listOf(
-            Task(1, "ruokalista", "olutta", 1, "15.12.2026", true),
-            Task(2, "kotitehtävät", "kotlinia", 1, "04.12.2026", true),
-            Task(3, "siivous", "kylppäri", 1, "15.06.2026", false),
-            Task(4, "pelaaminen", "hk", 1, "22.12.2025", false),
-            Task(5, "kuntosali", "rinta, taljat, kädet", 1, "17.12.2025", false)
-        )
-    }
-
-
-    fun showDone()
+    /*fun showDone()
     {
         if(!toggledone)
         {
@@ -51,29 +50,35 @@ class TaskViewModel : ViewModel() {
             _taskilistaState.value = _taskilistaStateKaikki.value
             toggledone = false
         }
-    }
+    }*/
     fun addTask(uusitaski: Task)
     {
-            Log.d("häh", "toomiiks1")
-            _taskilistaState.value += uusitaski
-            addTaskDialogVisible.value = false
+        viewModelScope.launch {
+        repository.insert(uusitaski)
+        }
 
     }
-    fun removeTask(taskId: Int) //poistetaan taski sen sijainnin perusteella listasta
+    fun removeTask(taskId: Int)
     {
-        _taskilistaState.value.forEach { task ->
+        taskilistaState.value.forEach { task ->
             if(taskId == task.id )
             {
-                _taskilistaState.value -= task
+                viewModelScope.launch {
+                    repository.delete(task)
             }
+        }
         }
         _valittutaski.value = null
     }
-    fun toggleDone(uiListPositionIndex: Int) //muutetaan done taskin sijainnin perusteella listasta
+    fun toggleDone(itemId: Int)
     {
-        _taskilistaState.value = _taskilistaState.value.mapIndexed { index, item ->
-            if (uiListPositionIndex == index) {
-                item.copy(done = !item.done)
+        taskilistaState.value.mapIndexed { index, item ->
+            if (itemId == item.id) {
+                viewModelScope.launch {
+                    val updated: Boolean = !item.done
+                    Log.d("updated", "$updated, $index, $item")
+                    repository.toggleTaskStatus(itemId, updated)
+                }
             } else {
                 item
             }
@@ -81,18 +86,12 @@ class TaskViewModel : ViewModel() {
     }
     fun sortByDate()
     {
-        _taskilistaState.value = _taskilistaState.value.sortedBy{it.dueDate.substring(0, 2)} //sorttaillaan ekaks päivät, sitten kuut ja lopuks vuoden mukaan
-        _taskilistaState.value = _taskilistaState.value.sortedBy{it.dueDate.substring(3, 5)}
-        _taskilistaState.value = _taskilistaState.value.sortedBy{it.dueDate.substring(6, 10)}
 
-    }
-    fun isValidText(text: String): Boolean {
-        return text.matches(Regex("^(?:[01]?[0-9]|2[0-3]).[0-5]?[0-9](?:.[0-5]?[0-9]?[0-9]?[0-9])?\$"))
     }
     fun updateTask(updated: Task)
     {
-        _taskilistaState.value = _taskilistaState.value.map {
-            if (it.id == updated.id) updated else it
+        viewModelScope.launch {
+            repository.upTask(updated.id, updated.description, updated.title)
         }
         _valittutaski.value = null
     }
